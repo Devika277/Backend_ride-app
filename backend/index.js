@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const Razorpay = require("razorpay");
 const nodemailer = require("nodemailer");
 const admin = require("firebase-admin");
 
@@ -9,18 +10,53 @@ admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-
 const db = admin.firestore();
-const app = express();
 
+const app = express();
 app.use(cors());
 app.use(express.json());
+
+/* ================= RAZORPAY ================= */
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
+
+app.post("/create-order", async (req, res) => {
+  try {
+    const { amount, receipt } = req.body;
+
+    if (!amount) {
+      return res.status(400).json({ error: "Amount is required" });
+    }
+
+    const order = await razorpay.orders.create({
+      amount: Math.round(amount * 100),
+      currency: "INR",
+      receipt: receipt ?? `ride_${Date.now()}`,
+      payment_capture: 1,
+    });
+
+    res.json({
+      orderId: order.id,
+      amount: order.amount,
+      currency: order.currency,
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Order creation failed" });
+  }
+});
+
+/* ================= OTP + EMAIL ================= */
 
 const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
-    user: "msdevika277@gmail.com",
-    pass: "aqvhhgeohifvlhds",
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,
   },
 });
 
@@ -60,29 +96,16 @@ app.post("/verify-otp", async (req, res) => {
 
   res.send({ success: true });
 });
+
+/* ================= TEST ================= */
+
 app.get("/", (req, res) => {
-  res.send("Backend is running");
+  res.send("Backend running 🚀");
 });
 
-app.listen(4000, '0.0.0.0', () => {
-  console.log("Server running on 4000")
+/* ================= ONLY LISTEN ONCE ================= */
+
+const PORT = process.env.PORT || 4000;
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`Server running on ${PORT}`);
 });
-
-
-// const express = require("express");
-// const cors = require("cors");
-
-// const app = express();
-
-// app.use(cors());
-// app.use(express.json());
-
-// // 👇 THIS ROUTE IS REQUIRED
-// app.get("/", (req, res) => {
-//   res.send("Backend running");
-// });
-
-// app.listen(4000, () => {
-//   console.log("Server running on port 4000");
-// });
-
