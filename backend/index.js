@@ -54,14 +54,51 @@ app.post("/create-order", async (req, res) => {
 
 /* ================= OTP + EMAIL ================= */
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-});
+// const transporter = nodemailer.createTransport({
+//   service: "gmail",
+//   auth: {
+//     user: process.env.MAIL_USER,
+//     pass: process.env.MAIL_PASS,
+//   },
+// });
 
+
+// app.post("/send-otp", async (req, res) => {
+//   try {
+//     console.log("📩 /send-otp HIT", req.body);
+
+//     const { email } = req.body;
+//     if (!email) {
+//       return res.status(400).json({ success: false, message: "Email required" });
+//     }
+
+//     const otp = Math.floor(100000 + Math.random() * 900000);
+
+//     await db.collection("emailOtps").doc(email).set({
+//       otp,
+//       expiresAt: Date.now() + 5 * 60 * 1000,
+//     });
+
+//     await transporter.sendMail({
+//       from: `"Ride App" <${process.env.MAIL_USER}>`,
+//       to: email,
+//       subject: "MyRideApp OTP ",
+//       text: `OTP for login into the MyRide App.
+//       Your OTP is ${otp}. Valid for 5 minutes.`,
+//     });
+
+//     res.json({ success: true });
+//   } catch (error) {
+//     console.error("❌ OTP SEND FAILED:", error);
+//     res.status(500).json({ success: false, message: "OTP failed" });
+//   }
+// });
+
+
+
+import { Resend } from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 app.post("/send-otp", async (req, res) => {
   try {
@@ -69,30 +106,53 @@ app.post("/send-otp", async (req, res) => {
 
     const { email } = req.body;
     if (!email) {
-      return res.status(400).json({ success: false, message: "Email required" });
+      return res.status(400).json({
+        success: false,
+        message: "Email required",
+      });
     }
 
-    const otp = Math.floor(100000 + Math.random() * 900000);
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
+    // Save OTP to Firestore
     await db.collection("emailOtps").doc(email).set({
       otp,
-      expiresAt: Date.now() + 5 * 60 * 1000,
+      expiresAt: Date.now() + 5 * 60 * 1000, // 5 minutes
     });
 
-    await transporter.sendMail({
-      from: `"Ride App" <${process.env.MAIL_USER}>`,
+    // Send email using Resend
+    await resend.emails.send({
+      from: "MyRide App <onboarding@resend.dev>",
       to: email,
-      subject: "MyRideApp OTP ",
-      text: `OTP for login into the MyRide App.
-      Your OTP is ${otp}. Valid for 5 minutes.`,
+      subject: "MyRideApp OTP",
+      html: `
+        <p>OTP for login into the <b>MyRide App</b>.</p>
+        <h2>${otp}</h2>
+        <p>Valid for 5 minutes.</p>
+      `,
     });
 
-    res.json({ success: true });
+    console.log("✅ OTP sent successfully");
+
+    return res.json({
+      success: true,
+      message: "OTP sent successfully",
+    });
+
   } catch (error) {
     console.error("❌ OTP SEND FAILED:", error);
-    res.status(500).json({ success: false, message: "OTP failed" });
+
+    return res.status(500).json({
+      success: false,
+      message: "OTP failed",
+      error: error.message,
+    });
   }
 });
+
+
+
 
 
 // app.post("/verify-otp", async (req, res) => {

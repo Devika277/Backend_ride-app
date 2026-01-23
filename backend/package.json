@@ -15,6 +15,7 @@
     "express": "^5.2.1",
     "firebase-admin": "^13.6.0",
     "nodemailer": "^7.0.12",
-    "razorpay": "^2.9.6"
+    "razorpay": "^2.9.6",
+    "resend": "^6.8.0"
   }
 }
